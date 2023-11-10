@@ -121,10 +121,7 @@ class BlockWithMasking(nn.Module):
             attn_target, nn.Module
         ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
-        if drop_path > 0.0:
-            self.drop_path = DropPath(drop_path)
-        else:
-            self.drop_path = nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm_1 = norm_layer(dim)
         mlp_hidden_dim = int(mlp_ratio * dim)
         self.mlp = Mlp(
@@ -157,16 +154,8 @@ class BlockWithMasking(nn.Module):
             )
 
     def forward(self, x: torch.Tensor, attn_mask: torch.Tensor):
-        if self.layer_scale_type is None:
-            x = x + self.drop_path(self.attn(self.norm_1(x), attn_mask))
-            x = x + self.drop_path(self.mlp(self.norm_2(x)))
-        else:
-            x = (
-                x
-                + self.drop_path(self.attn(self.norm_1(x), attn_mask))
-                # * self.layer_scale_gamma1
-            )
-            x = x + self.drop_path(self.mlp(self.norm_2(x))) # * self.layer_scale_gamma2
+        x = x + self.drop_path(self.attn(self.norm_1(x), attn_mask))
+        x = x + self.drop_path(self.mlp(self.norm_2(x)))
         return x
 
 
@@ -204,7 +193,7 @@ class SimpleTransformer(nn.Module):
         if drop_path_type == "progressive":
             dpr = [x.item() for x in torch.linspace(0, drop_path_rate, num_blocks)]
         elif drop_path_type == "uniform":
-            dpr = [drop_path_rate for i in range(num_blocks)]
+            dpr = [drop_path_rate for _ in range(num_blocks)]
         else:
             raise ValueError(f"Unknown drop_path_type: {drop_path_type}")
 

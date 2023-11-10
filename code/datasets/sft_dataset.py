@@ -61,7 +61,7 @@ class SupervisedDataset(Dataset):
             # TODO: stage 2 dataset format is invalid
             if not one_image_name.endswith('.jpg'):
                 one_image_name += '.jpg'
-            one_image_path = image_root_path + '/{}'.format(one_image_name)
+            one_image_path = f'{image_root_path}/{one_image_name}'
             self.image_path_list.append(one_image_path)
             self.caption_list.append(one_caption)
         print(f'[!] collect {len(self.image_path_list)} samples for training')

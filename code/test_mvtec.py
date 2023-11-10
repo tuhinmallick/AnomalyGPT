@@ -17,23 +17,23 @@ parser.add_argument("--round", type=int, default=3)
 command_args = parser.parse_args()
 
 
-describles = {}
-describles['bottle'] = "This is a photo of a bottle for anomaly detection, which should be round, without any damage, flaw, defect, scratch, hole or broken part."
-describles['cable'] = "This is a photo of three cables for anomaly detection, cables cannot be missed or swapped, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['capsule'] = "This is a photo of a capsule for anomaly detection, which should be black and orange, with print '500', without any damage, flaw, defect, scratch, hole or broken part."
-describles['carpet'] = "This is a photo of carpet for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['grid'] = "This is a photo of grid for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['hazelnut'] = "This is a photo of a hazelnut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['leather'] = "This is a photo of leather for anomaly detection, which should be brown and without any damage, flaw, defect, scratch, hole or broken part."
-describles['metal_nut'] = "This is a photo of a metal nut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part, and shouldn't be fliped."
-describles['pill'] = "This is a photo of a pill for anomaly detection, which should be white, with print 'FF' and red patterns, without any damage, flaw, defect, scratch, hole or broken part."
-describles['screw'] = "This is a photo of a screw for anomaly detection, which tail should be sharp, and without any damage, flaw, defect, scratch, hole or broken part."
-describles['tile'] = "This is a photo of tile for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['toothbrush'] = "This is a photo of a toothbrush for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['transistor'] = "This is a photo of a transistor for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['wood'] = "This is a photo of wood for anomaly detection, which should be brown with patterns, without any damage, flaw, defect, scratch, hole or broken part."
-describles['zipper'] = "This is a photo of a zipper for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-
+describles = {
+    'bottle': "This is a photo of a bottle for anomaly detection, which should be round, without any damage, flaw, defect, scratch, hole or broken part.",
+    'cable': "This is a photo of three cables for anomaly detection, cables cannot be missed or swapped, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'capsule': "This is a photo of a capsule for anomaly detection, which should be black and orange, with print '500', without any damage, flaw, defect, scratch, hole or broken part.",
+    'carpet': "This is a photo of carpet for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'grid': "This is a photo of grid for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'hazelnut': "This is a photo of a hazelnut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'leather': "This is a photo of leather for anomaly detection, which should be brown and without any damage, flaw, defect, scratch, hole or broken part.",
+    'metal_nut': "This is a photo of a metal nut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part, and shouldn't be fliped.",
+    'pill': "This is a photo of a pill for anomaly detection, which should be white, with print 'FF' and red patterns, without any damage, flaw, defect, scratch, hole or broken part.",
+    'screw': "This is a photo of a screw for anomaly detection, which tail should be sharp, and without any damage, flaw, defect, scratch, hole or broken part.",
+    'tile': "This is a photo of tile for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'toothbrush': "This is a photo of a toothbrush for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'transistor': "This is a photo of a transistor for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'wood': "This is a photo of wood for anomaly detection, which should be brown with patterns, without any damage, flaw, defect, scratch, hole or broken part.",
+    'zipper': "This is a photo of a zipper for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+}
 FEW_SHOT = command_args.few_shot 
 
 # init the model
@@ -57,7 +57,7 @@ delta_ckpt = torch.load(args['anomalygpt_ckpt_path'], map_location=torch.device(
 model.load_state_dict(delta_ckpt, strict=False)
 model = model.eval().half().cuda()
 
-print(f'[!] init the 7b model over ...')
+print('[!] init the 7b model over ...')
 
 """Override Chatbot.postprocess"""
 p_auc_list = []
@@ -73,17 +73,13 @@ def predict(
     history,
     modality_cache,  
 ):
-    prompt_text = ''
-    for idx, (q, a) in enumerate(history):
-        if idx == 0:
-            prompt_text += f'{q}\n### Assistant: {a}\n###'
-        else:
-            prompt_text += f' Human: {q}\n### Assistant: {a}\n###'
-    if len(history) == 0:
-        prompt_text += f'{input}'
-    else:
-        prompt_text += f' Human: {input}'
-
+    prompt_text = ''.join(
+        f'{q}\n### Assistant: {a}\n###'
+        if idx == 0
+        else f' Human: {q}\n### Assistant: {a}\n###'
+        for idx, (q, a) in enumerate(history)
+    )
+    prompt_text += f'{input}' if len(history) == 0 else f' Human: {input}'
     response, pixel_output = model.generate({
         'prompt': prompt_text,
         'image_paths': [image_path] if image_path else [],
@@ -112,8 +108,12 @@ CLASS_NAMES = ['bottle', 'cable', 'capsule', 'carpet', 'grid','hazelnut', 'leath
 precision = []
 
 for c_name in CLASS_NAMES:
-    normal_img_paths = ["../data/mvtec_anomaly_detection/"+c_name+"/train/good/"+str(command_args.round * 4).zfill(3)+".png", "../data/mvtec_anomaly_detection/"+c_name+"/train/good/"+str(command_args.round * 4 + 1).zfill(3)+".png",
-                        "../data/mvtec_anomaly_detection/"+c_name+"/train/good/"+str(command_args.round * 4 + 2).zfill(3)+".png", "../data/mvtec_anomaly_detection/"+c_name+"/train/good/"+str(command_args.round * 4 + 3).zfill(3)+".png"]
+    normal_img_paths = [
+        f"../data/mvtec_anomaly_detection/{c_name}/train/good/{str(command_args.round * 4).zfill(3)}.png",
+        f"../data/mvtec_anomaly_detection/{c_name}/train/good/{str(command_args.round * 4 + 1).zfill(3)}.png",
+        f"../data/mvtec_anomaly_detection/{c_name}/train/good/{str(command_args.round * 4 + 2).zfill(3)}.png",
+        f"../data/mvtec_anomaly_detection/{c_name}/train/good/{str(command_args.round * 4 + 3).zfill(3)}.png",
+    ]
     normal_img_paths = normal_img_paths[:command_args.k_shot]
     right = 0
     wrong = 0
@@ -126,9 +126,27 @@ for c_name in CLASS_NAMES:
             file_path = os.path.join(root, file)
             if "test" in file_path and 'png' in file and c_name in file_path:
                 if FEW_SHOT:
-                    resp, anomaly_map = predict(describles[c_name] + ' ' + input, file_path, normal_img_paths, 512, 0.1, 1.0, [], [])
+                    resp, anomaly_map = predict(
+                        f'{describles[c_name]} {input}',
+                        file_path,
+                        normal_img_paths,
+                        512,
+                        0.1,
+                        1.0,
+                        [],
+                        [],
+                    )
                 else:
-                    resp, anomaly_map = predict(describles[c_name] + ' ' + input, file_path, [], 512, 0.1, 1.0, [], [])
+                    resp, anomaly_map = predict(
+                        f'{describles[c_name]} {input}',
+                        file_path,
+                        [],
+                        512,
+                        0.1,
+                        1.0,
+                        [],
+                        [],
+                    )
                 is_normal = 'good' in file_path.split('/')[-2]
 
                 if is_normal:
@@ -141,7 +159,7 @@ for c_name in CLASS_NAMES:
                 img_mask = mask_transform(img_mask)
                 img_mask[img_mask > 0.1], img_mask[img_mask <= 0.1] = 1, 0
                 img_mask = img_mask.squeeze().reshape(224, 224).cpu().numpy()
-                
+
                 anomaly_map = anomaly_map.reshape(224, 224).detach().cpu().numpy()
 
                 p_label.append(img_mask)
@@ -152,9 +170,12 @@ for c_name in CLASS_NAMES:
 
                 position = []
 
-                if 'good' not in file_path and 'Yes' in resp:
-                    right += 1
-                elif 'good' in file_path and 'No' in resp:
+                if (
+                    'good' not in file_path
+                    and 'Yes' in resp
+                    or 'good' in file_path
+                    and 'No' in resp
+                ):
                     right += 1
                 else:
                     wrong += 1
@@ -165,11 +186,11 @@ for c_name in CLASS_NAMES:
     i_pred = np.array(i_pred)
     i_label = np.array(i_label)
 
-    
+
 
     p_auroc = round(roc_auc_score(p_label.ravel(), p_pred.ravel()) * 100,2)
     i_auroc = round(roc_auc_score(i_label.ravel(), i_pred.ravel()) * 100,2)
-    
+
     p_auc_list.append(p_auroc)
     i_auc_list.append(i_auroc)
     precision.append(100 * right / (right + wrong))

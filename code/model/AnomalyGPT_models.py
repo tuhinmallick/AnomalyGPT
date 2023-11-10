@@ -17,7 +17,7 @@ class Normalize(nn.Module):
 class LinearLayer(nn.Module):
     def __init__(self, dim_in, dim_out, k):
         super(LinearLayer, self).__init__()
-        self.fc = nn.ModuleList([nn.Linear(dim_in, dim_out) for i in range(k)])
+        self.fc = nn.ModuleList([nn.Linear(dim_in, dim_out) for _ in range(k)])
 
     def forward(self, tokens):
         for i in range(len(tokens)):
@@ -69,5 +69,4 @@ class PromptLearner(nn.Module):
         img_prompts = self.meta_net(input)
         # print(input.shape, img_prompts.shape)
         img_prompts = img_prompts.reshape(B,4096,9).transpose(-2,-1)
-        output = torch.cat([self.base_prompts.expand(B,-1,-1), img_prompts], dim=1)
-        return output
+        return torch.cat([self.base_prompts.expand(B,-1,-1), img_prompts], dim=1)

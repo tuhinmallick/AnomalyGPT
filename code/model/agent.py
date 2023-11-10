@@ -37,8 +37,7 @@ class DeepSpeedAgent:
     @torch.no_grad()
     def predict(self, batch):
         self.model.eval()
-        string = self.model.generate_one_sample(batch)
-        return string
+        return self.model.generate_one_sample(batch)
 
     def train_model(self, batch, current_step=0, pbar=None):
         self.ds_engine.module.train()

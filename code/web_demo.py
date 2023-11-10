@@ -55,26 +55,26 @@ def parse_text(text):
         if "```" in line:
             count += 1
             items = line.split('`')
+            lines[i] = (
+                f'<pre><code class="language-{items[-1]}">'
+                if count % 2 == 1
+                else '<br></code></pre>'
+            )
+        elif i > 0:
             if count % 2 == 1:
-                lines[i] = f'<pre><code class="language-{items[-1]}">'
-            else:
-                lines[i] = f'<br></code></pre>'
-        else:
-            if i > 0:
-                if count % 2 == 1:
-                    line = line.replace("`", "\`")
-                    line = line.replace("<", "&lt;")
-                    line = line.replace(">", "&gt;")
-                    line = line.replace(" ", "&nbsp;")
-                    line = line.replace("*", "&ast;")
-                    line = line.replace("_", "&lowbar;")
-                    line = line.replace("-", "&#45;")
-                    line = line.replace(".", "&#46;")
-                    line = line.replace("!", "&#33;")
-                    line = line.replace("(", "&#40;")
-                    line = line.replace(")", "&#41;")
-                    line = line.replace("$", "&#36;")
-                lines[i] = "<br>"+line
+                line = line.replace("`", "\`")
+                line = line.replace("<", "&lt;")
+                line = line.replace(">", "&gt;")
+                line = line.replace(" ", "&nbsp;")
+                line = line.replace("*", "&ast;")
+                line = line.replace("_", "&lowbar;")
+                line = line.replace("-", "&#45;")
+                line = line.replace(".", "&#46;")
+                line = line.replace("!", "&#33;")
+                line = line.replace("(", "&#40;")
+                line = line.replace(")", "&#41;")
+                line = line.replace("$", "&#36;")
+            lines[i] = f"<br>{line}"
     text = "".join(lines)
     return text
 
@@ -96,18 +96,13 @@ def predict(
     else:
         print(f'[!] image path: {image_path}\n[!] normal image path: {normal_img_path}\n')
 
-    # prepare the prompt
-    prompt_text = ''
-    for idx, (q, a) in enumerate(history):
-        if idx == 0:
-            prompt_text += f'{q}\n### Assistant: {a}\n###'
-        else:
-            prompt_text += f' Human: {q}\n### Assistant: {a}\n###'
-    if len(history) == 0:
-        prompt_text += f'{input}'
-    else:
-        prompt_text += f' Human: {input}'
-
+    prompt_text = ''.join(
+        f'{q}\n### Assistant: {a}\n###'
+        if idx == 0
+        else f' Human: {q}\n### Assistant: {a}\n###'
+        for idx, (q, a) in enumerate(history)
+    )
+    prompt_text += f'{input}' if len(history) == 0 else f' Human: {input}'
     response, pixel_output = model.generate({
         'prompt': prompt_text,
         'image_paths': [image_path] if image_path else [],

@@ -67,16 +67,13 @@ def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
     else:
         src_object_mask = None
         dest_object_mask = None
-    
+
     # add patches
     label_centers = []
     mask = np.zeros_like(ima_dest[..., 0:1])  # single channel
     patchex = ima_dest.copy()
-    coor_min_dim1, coor_max_dim1, coor_min_dim2, coor_max_dim2 = mask.shape[0] - 1, 0, mask.shape[1] - 1, 0 
-    if label_mode == 'continuous':
-        factor = np.random.uniform(0.05, 0.95)
-    else:
-        factor = 1
+    coor_min_dim1, coor_max_dim1, coor_min_dim2, coor_max_dim2 = mask.shape[0] - 1, 0, mask.shape[1] - 1, 0
+    factor = np.random.uniform(0.05, 0.95) if label_mode == 'continuous' else 1
     for i in range(num_patches):
         if i == 0 or np.random.randint(2) > 0:  # at least one patch
             patchex, ((_coor_min_dim1, _coor_max_dim1), (_coor_min_dim2, _coor_max_dim2)), patch_mask = _patch_ex(
@@ -103,9 +100,9 @@ def patch_ex(ima_dest, ima_src=None, same=False, num_patches=1,
         if label_mode == 'logistic-intensity':
             label = label_mask / (1 + np.exp(-k * (label - x0)))
     elif label_mode == 'binary':
-        label = label_mask  
+        label = label_mask
     else:
-        raise ValueError("label_mode not supported" + str(label_mode))
+        raise ValueError(f"label_mode not supported{str(label_mode)}")
 
     return patchex, label, label_centers
 
@@ -125,7 +122,7 @@ def _patch_ex(ima_dest, ima_src, dest_object_mask, src_object_mask, mode, label_
             aspect_ratio = np.random.uniform(0.3, 1)
         else:
             aspect_ratio = np.random.uniform(1, 3.3)
-        
+
         patch_width_dim1 = int(np.rint(np.clip(np.sqrt(area_ratio * aspect_ratio * dims[0]**2), 0, dims[0])))
         patch_width_dim2 = int(np.rint(np.clip(area_ratio * dims[0]**2 / patch_width_dim1, 0, dims[1])))
         #  3. sample location such that patch is contained entirely within the image
@@ -220,7 +217,7 @@ def _patch_ex(ima_dest, ima_src, dest_object_mask, src_object_mask, mode, label_
     if skip_background:
         src_object_mask = cv2.resize(src_object_mask[coor_min_dim1:coor_max_dim1, coor_min_dim2:coor_max_dim2, 0], (width, height))
         src_object_mask = src_object_mask[...,None]
-    
+
     # sample destination location and size
     if shift:
         found_center = False
@@ -243,7 +240,7 @@ def _patch_ex(ima_dest, ima_src, dest_object_mask, src_object_mask, mode, label_
                 if verbose:
                     print('No suitable center found. Dims were:', width, height)
                 return ima_dest.copy(), ((0,0),(0,0)), None
-            
+
     # blend
     if skip_background:
         patch_mask &= src_object_mask | dest_object_mask[coor_min_dim1:coor_max_dim1, coor_min_dim2:coor_max_dim2] 
@@ -283,6 +280,6 @@ def _patch_ex(ima_dest, ima_src, dest_object_mask, src_object_mask, mode, label_
             print('WARNING, tried bad interpolation mask and got:', e)
             return ima_dest.copy(), ((0,0),(0,0)), None
     else:
-        raise ValueError("mode not supported" + str(mode))
+        raise ValueError(f"mode not supported{str(mode)}")
 
     return patchex, ((coor_min_dim1, coor_max_dim1), (coor_min_dim2, coor_max_dim2)), patch_mask
