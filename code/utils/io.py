@@ -17,7 +17,7 @@ class IO:
         elif file_extension in ['.txt']:
             return cls._read_txt(file_path)
         else:
-            raise Exception('Unsupported file extension: %s' % file_extension)
+            raise Exception(f'Unsupported file extension: {file_extension}')
 
     # References: https://github.com/numpy/numpy/blob/master/numpy/lib/format.py
     @classmethod
@@ -29,8 +29,7 @@ class IO:
     @classmethod
     def _read_pcd(cls, file_path):
         pc = open3d.io.read_point_cloud(file_path)
-        ptcloud = np.array(pc.points)
-        return ptcloud
+        return np.array(pc.points)
 
     @classmethod
     def _read_txt(cls, file_path):

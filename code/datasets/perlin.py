@@ -3,8 +3,7 @@ import math
 import numpy as np
 
 def lerp_np(x,y,w):
-    fin_out = (y - x) * w + x
-    return fin_out
+    return (y - x) * w + x
 
 def generate_fractal_noise_2d(shape, res, octaves=1, persistence=0.5):
     noise = np.zeros(shape)

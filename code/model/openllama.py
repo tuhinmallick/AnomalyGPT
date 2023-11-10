@@ -35,12 +35,11 @@ prompt_sentences = {}
 
 for obj in objs:
     prompt_sentence_obj = []
-    for i in range(len(prompt_state)):
-        prompted_state = [state.format(obj) for state in prompt_state[i]]
+    for item in prompt_state:
+        prompted_state = [state.format(obj) for state in item]
         prompted_sentence = []
         for s in prompted_state:
-            for template in prompt_templates:
-                prompted_sentence.append(template.format(s))
+            prompted_sentence.extend(template.format(s) for template in prompt_templates)
         prompted_sentence = data.load_and_transform_text(prompted_sentence, torch.cuda.current_device())
         prompt_sentence_obj.append(prompted_sentence)
     prompt_sentences[obj] = prompt_sentence_obj
@@ -72,9 +71,7 @@ def encode_text_with_prompt_ensemble(model, obj, device):
     class_embeddings_abnormal = class_embeddings_abnormal.mean(dim=1, keepdim=True)
     class_embeddings_abnormal = class_embeddings_abnormal / class_embeddings_abnormal.norm(dim=-1, keepdim=True)
 
-    text_features = torch.cat([class_embeddings_normal, class_embeddings_abnormal], dim=1)
-
-    return text_features
+    return torch.cat([class_embeddings_normal, class_embeddings_abnormal], dim=1)
 
 
 
@@ -89,9 +86,7 @@ class StoppingCriteriaSub(StoppingCriteria):
         stop_count = 0
         for stop in self.stops:
             stop_count = (stop == input_ids[0]).sum().item()
-        if stop_count >= self.ENCOUNTERS:
-            return True
-        return False
+        return stop_count >= self.ENCOUNTERS
 
 def build_one_instance(tokenizer, conversation):
     text_list = []
@@ -106,19 +101,18 @@ def build_one_instance(tokenizer, conversation):
             one_input_id = tokenizer(text, add_special_tokens=False).input_ids
             input_ids += one_input_id
             target_ids += [-100]*len(one_input_id) # do not perform loss regression on human prompt
+        elif role == 'gpt':
+            text = turn['value'] + '\n###'
+            one_input_id = tokenizer(text, add_special_tokens=False).input_ids
+            input_ids += one_input_id
+            target_ids += one_input_id
+        elif role == 'human':
+            text = 'Human: ' + turn['value'] + '\n### Assistant:'
+            one_input_id = tokenizer(text, add_special_tokens=False).input_ids
+            input_ids += one_input_id
+            target_ids += [-100]*len(one_input_id)
         else:
-            if role == 'human':
-                text = 'Human: ' + turn['value'] + '\n### Assistant:'
-                one_input_id = tokenizer(text, add_special_tokens=False).input_ids
-                input_ids += one_input_id
-                target_ids += [-100]*len(one_input_id)
-            elif role == 'gpt':
-                text = turn['value'] + '\n###'
-                one_input_id = tokenizer(text, add_special_tokens=False).input_ids
-                input_ids += one_input_id
-                target_ids += one_input_id
-            else:
-                raise Exception('Wrong Role!!!')
+            raise Exception('Wrong Role!!!')
         text_list.append(text)
         assert len(input_ids) == len(target_ids)
     return text_list, input_ids, target_ids
@@ -397,7 +391,7 @@ class OpenLLAMAPEFTModel(nn.Module):
                          device=p_before_tokens.input_ids.device) * self.llama_tokenizer.bos_token_id # bsz x 1
         bos_embeds = self.llama_model.model.model.embed_tokens(bos) # bsz x 1 x embed_dim
 
-        
+
 
         if anomaly_embedding != None:
             inputs_embeds = torch.cat([bos_embeds, p_before_embeds, img_embeds, p_middle_embeds, anomaly_embedding, p_after_embeds], dim=1) # bsz x (1+s1+1+s2) x embed_dim
@@ -410,9 +404,6 @@ class OpenLLAMAPEFTModel(nn.Module):
             assert inputs_embeds.size()[1] == targets.size()[1]
 
             atts_prefix = torch.ones([batch_size, 1+p_before_embeds.size()[1]+1+p_middle_embeds.size()[1] + anomaly_embedding.size()[1]], dtype=torch.long).to(self.device) # bsz x (1 + s1 +1)
-            attention_mask = torch.cat([atts_prefix, attention_mask], dim=1)
-            assert attention_mask.size() == targets.size() # bsz x (1 + s1 + 1 + s2)
-            return inputs_embeds, targets, attention_mask 
         else:
             inputs_embeds = torch.cat([bos_embeds, p_before_embeds, img_embeds, p_middle_embeds, p_after_embeds], dim=1) # bsz x (1+s1+1+s2) x embed_dim
             # create targets
@@ -423,14 +414,16 @@ class OpenLLAMAPEFTModel(nn.Module):
             targets = torch.cat([empty_targets, target_ids], dim=1) # bsz x (1 + s1 + 1 + s2)
             assert inputs_embeds.size()[1] == targets.size()[1]
 
-            atts_prefix = torch.ones([batch_size, 1+p_before_embeds.size()[1]+1+p_middle_embeds.size()[1]], dtype=torch.long).to(self.device) # bsz x (1 + s1 +1)
-            attention_mask = torch.cat([atts_prefix, attention_mask], dim=1)
-            assert attention_mask.size() == targets.size() # bsz x (1 + s1 + 1 + s2)
-            return inputs_embeds, targets, attention_mask 
+            atts_prefix = torch.ones([batch_size, 1+p_before_embeds.size()[1]+1+p_middle_embeds.size()[1]], dtype=torch.long).to(self.device) # bsz x (1 + s1 +1) 
+
+        attention_mask = torch.cat([atts_prefix, attention_mask], dim=1)
+        assert attention_mask.size() == targets.size() # bsz x (1 + s1 + 1 + s2)
+        return inputs_embeds, targets, attention_mask 
 
 
     def forward(self, inputs):
 
+        anomaly_maps = []
         if 'masks' in inputs:
 
             image_paths = inputs['images']
@@ -440,7 +433,6 @@ class OpenLLAMAPEFTModel(nn.Module):
             loss_pixel = 0
             feats_text_tensor = encode_text_with_prompt_ensemble(self.visual_encoder, class_name, self.device)
 
-            anomaly_maps = []
             for layer in range(len(patch_tokens)):
                 patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
                 anomaly_map = (100.0 * patch_tokens[layer] @ feats_text_tensor.transpose(-2,-1))
@@ -456,18 +448,18 @@ class OpenLLAMAPEFTModel(nn.Module):
             gt = torch.stack(gt, dim=0).to(self.device)
             gt = gt.squeeze()
             gt[gt > 0.3], gt[gt <= 0.3] = 1, 0
-            
 
-            for num in range(len(anomaly_maps)):
-                f_loss = self.loss_focal(anomaly_maps[num], gt)
-                d_loss = self.loss_dice(anomaly_maps[num][:, 1, :, :], gt)
+
+            for anomaly_map_ in anomaly_maps:
+                f_loss = self.loss_focal(anomaly_map_, gt)
+                d_loss = self.loss_dice(anomaly_map_[:, 1, :, :], gt)
                 loss_pixel = loss_pixel + f_loss + d_loss
 
             for num in range(len(anomaly_maps)):
                 anomaly_maps[num] = anomaly_maps[num][:,1,:,:]
 
             anomaly_map_all = torch.mean(torch.stack(anomaly_maps, dim=0), dim=0).unsqueeze(1)
-        
+
             if random.randint(0,1) == 0 and len(inputs['img_paths']) == len(image_paths):
 
                 normal_paths = []
@@ -526,7 +518,7 @@ class OpenLLAMAPEFTModel(nn.Module):
             gen_acc = valid_tokens.sum().item() / valid_mask.sum().item()
 
             return loss + loss_pixel, gen_acc
-        
+
         else:
             
             image_paths = inputs['image_paths']
@@ -537,7 +529,6 @@ class OpenLLAMAPEFTModel(nn.Module):
 
             feats_text_tensor = encode_text_with_prompt_ensemble(self.visual_encoder, ['object'] * len(image_paths), self.device)
 
-            anomaly_maps = []
             for layer in range(len(patch_tokens)):
                 patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
                 # print(patch_tokens[layer].shape)
@@ -577,7 +568,7 @@ class OpenLLAMAPEFTModel(nn.Module):
             valid_mask = (labels != -100).reshape(-1)
             valid_tokens = gen_acc & valid_mask    # [B*S]
             gen_acc = valid_tokens.sum().item() / valid_mask.sum().item()
-            
+
             return loss, gen_acc
 
 
@@ -586,19 +577,12 @@ class OpenLLAMAPEFTModel(nn.Module):
         if inputs['image_paths']:
             
             prompt = inputs['prompt']
-            c_name = 'object'
-            for name in CLASS_NAMES:
-                if name in prompt:
-                    c_name = name
-                    break
-                
+            c_name = next((name for name in CLASS_NAMES if name in prompt), 'object')
             if not web_demo:
                 image_embeds, _, patch_tokens = self.encode_image(inputs['image_paths'])
-                feats_text_tensor = encode_text_with_prompt_ensemble(self.visual_encoder, [c_name], self.device)
             else:
                 image_embeds, _, patch_tokens = self.encode_image_for_web_demo(inputs['image_paths'])
-                feats_text_tensor = encode_text_with_prompt_ensemble(self.visual_encoder, [c_name], self.device)
-
+            feats_text_tensor = encode_text_with_prompt_ensemble(self.visual_encoder, [c_name], self.device)
             anomaly_maps = []
             for layer in range(len(patch_tokens)):
                 patch_tokens[layer] = patch_tokens[layer] / patch_tokens[layer].norm(dim=-1, keepdim=True)
@@ -634,7 +618,7 @@ class OpenLLAMAPEFTModel(nn.Module):
                 sim = torch.mean(torch.stack(sims,dim=0), dim=0).reshape(1,1,16,16)
                 sim = F.interpolate(sim,size=224, mode='bilinear', align_corners=True)
                 anomaly_map_ret = 1 - sim # (anomaly_map_ret + 1 - sim) / 2
-                
+
 
             features.append(image_embeds)
         if inputs['audio_paths']:

@@ -37,22 +37,23 @@ OBJECTS = ['bottle', 'cable', 'capsule', 'hazelnut', 'metal_nut',
             'pill', 'screw', 'toothbrush', 'transistor', 'zipper']
 TEXTURES = ['carpet', 'grid', 'leather', 'tile', 'wood']
 
-describles = {}
-describles['bottle'] = "This is a photo of a bottle for anomaly detection, which should be round, without any damage, flaw, defect, scratch, hole or broken part."
-describles['cable'] = "This is a photo of three cables for anomaly detection, they are green, blue and grey, which cannot be missed or swapped and should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['capsule'] = "This is a photo of a capsule for anomaly detection, which should be black and orange, with print '500', without any damage, flaw, defect, scratch, hole or broken part."
-describles['carpet'] = "This is a photo of carpet for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['grid'] = "This is a photo of grid for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['hazelnut'] = "This is a photo of a hazelnut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['leather'] = "This is a photo of leather for anomaly detection, which should be brown and without any damage, flaw, defect, scratch, hole or broken part."
-describles['metal_nut'] = "This is a photo of a metal nut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part, and shouldn't be fliped."
-describles['pill'] = "This is a photo of a pill for anomaly detection, which should be white, with print 'FF' and red patterns, without any damage, flaw, defect, scratch, hole or broken part."
-describles['screw'] = "This is a photo of a screw for anomaly detection, which tail should be sharp, and without any damage, flaw, defect, scratch, hole or broken part."
-describles['tile'] = "This is a photo of tile for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['toothbrush'] = "This is a photo of a toothbrush for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['transistor'] = "This is a photo of a transistor for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['wood'] = "This is a photo of wood for anomaly detection, which should be brown with patterns, without any damage, flaw, defect, scratch, hole or broken part."
-describles['zipper'] = "This is a photo of a zipper for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
+describles = {
+    'bottle': "This is a photo of a bottle for anomaly detection, which should be round, without any damage, flaw, defect, scratch, hole or broken part.",
+    'cable': "This is a photo of three cables for anomaly detection, they are green, blue and grey, which cannot be missed or swapped and should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'capsule': "This is a photo of a capsule for anomaly detection, which should be black and orange, with print '500', without any damage, flaw, defect, scratch, hole or broken part.",
+    'carpet': "This is a photo of carpet for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'grid': "This is a photo of grid for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'hazelnut': "This is a photo of a hazelnut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'leather': "This is a photo of leather for anomaly detection, which should be brown and without any damage, flaw, defect, scratch, hole or broken part.",
+    'metal_nut': "This is a photo of a metal nut for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part, and shouldn't be fliped.",
+    'pill': "This is a photo of a pill for anomaly detection, which should be white, with print 'FF' and red patterns, without any damage, flaw, defect, scratch, hole or broken part.",
+    'screw': "This is a photo of a screw for anomaly detection, which tail should be sharp, and without any damage, flaw, defect, scratch, hole or broken part.",
+    'tile': "This is a photo of tile for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'toothbrush': "This is a photo of a toothbrush for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'transistor': "This is a photo of a transistor for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'wood': "This is a photo of wood for anomaly detection, which should be brown with patterns, without any damage, flaw, defect, scratch, hole or broken part.",
+    'zipper': "This is a photo of a zipper for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+}
 
 
 class MVtecDataset(Dataset):
@@ -112,17 +113,18 @@ class MVtecDataset(Dataset):
         p = self.x[self.prev_idx]
         if self.transform is not None:
             p = self.transform(p)
-        p = np.asarray(p)    
+        p = np.asarray(p)
         x, mask, centers = patch_ex(x, p, **self_sup_args)
         mask = torch.tensor(mask[None, ..., 0]).float()
         self.prev_idx = index
-        
+
 
 
         origin = self.norm_transform(origin)
         x = self.norm_transform(x)
 
-   
+
+        conversation_normal = []
         if len(centers) > 0:
             position = []
             for center in centers:
@@ -131,38 +133,39 @@ class MVtecDataset(Dataset):
 
                 if center_x <= 1/3 and center_y <= 1/3:
                     position.append('top left')
-                elif center_x <= 1/3 and center_y > 1/3 and center_y <= 2/3:
+                elif center_x <= 1 / 3 and center_y <= 2 / 3:
                     position.append('top')
-                elif center_x <= 1/3 and center_y > 2/3:
+                elif center_x <= 1 / 3:
                     position.append('top right')
 
                 elif center_x <= 2/3 and center_y <= 1/3:
                     position.append('left')
-                elif center_x <= 2/3 and center_y > 1/3 and center_y <= 2/3:
+                elif center_x <= 2 / 3 and center_y <= 2 / 3:
                     position.append('center')
-                elif center_x <= 2/3 and center_y > 2/3:
+                elif center_x <= 2 / 3:
                     position.append('right')
 
                 elif center_y <= 1/3:
                     position.append('bottom left')
-                elif center_y > 1/3 and center_y <= 2/3:
+                elif center_y <= 2 / 3:
                     position.append('bottom')
-                elif center_y > 2/3:
+                else:
                     position.append('bottom right')
 
-            conversation_normal = []
-            conversation_normal.append({"from":"human","value": describles[class_name] + " Is there any anomaly in the image?"})
-            conversation_normal.append({"from":"gpt","value":"No, there is no anomaly in the image."})
-            
-
-
-            conversation_abnormal = []
-            conversation_abnormal.append({"from":"human","value": describles[class_name] + " Is there any anomaly in the image?"})
-
-
-            
+            conversation_normal.extend(
+                (
+                    {
+                        "from": "human",
+                        "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                    },
+                    {
+                        "from": "gpt",
+                        "value": "No, there is no anomaly in the image.",
+                    },
+                )
+            )
             if len(centers) > 1:
-                abnormal_describe =  "Yes, there are " + str(len(centers)) + " anomalies in the image, they are at the "
+                abnormal_describe = f"Yes, there are {len(centers)} anomalies in the image, they are at the "
                 for i in range(len(centers)):
                     if i == 0:
                         abnormal_describe += position[i]
@@ -172,23 +175,36 @@ class MVtecDataset(Dataset):
                             abnormal_describe += ", "
                             abnormal_describe += position[i]
                         else:
-                            abnormal_describe += " and " + position[i] + " of the image."
-                    
-                    elif i == 1 and position[i] == position[i-1]:
+                            abnormal_describe += f" and {position[i]} of the image."
+
+                    elif i == 1:
                         if i == len(centers) - 1:
                             abnormal_describe += " of the image."
 
             else:
-                abnormal_describe = "Yes, there is an anomaly in the image, at the " + position[0] + " of the image."
+                abnormal_describe = f"Yes, there is an anomaly in the image, at the {position[0]} of the image."
 
-            conversation_abnormal.append({"from":"gpt","value":abnormal_describe})
-
+            conversation_abnormal = [
+                {
+                    "from": "human",
+                    "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                },
+                {"from": "gpt", "value": abnormal_describe},
+            ]
         else:
             print("no mask")
-            conversation_normal = []
-            conversation_normal.append({"from":"human","value":describles[class_name] + " Is there any anomaly in the image?"})
-            conversation_normal.append({"from":"gpt","value":"No, there is no anomaly in the image."})
-
+            conversation_normal.extend(
+                (
+                    {
+                        "from": "human",
+                        "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                    },
+                    {
+                        "from": "gpt",
+                        "value": "No, there is no anomaly in the image.",
+                    },
+                )
+            )
             conversation_abnormal = conversation_normal
 
         return origin, conversation_normal, x, conversation_abnormal, class_name, mask, img_path

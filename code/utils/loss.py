@@ -112,6 +112,4 @@ class BinaryDiceLoss(nn.Module):
         # 计算交集
         intersection = input_flat * targets_flat
         N_dice_eff = (2 * intersection.sum(1) + smooth) / (input_flat.sum(1) + targets_flat.sum(1) + smooth)
-        # 计算一个批次中平均每张图的损失
-        loss = 1 - N_dice_eff.sum() / N
-        return loss
+        return 1 - N_dice_eff.sum() / N

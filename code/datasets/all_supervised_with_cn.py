@@ -478,13 +478,12 @@ def format_position(position):
     for i in range(len(position)):
         if i == 0:
             ret += position[i]
-        else:
-            if i != len(position) - 1:
-                ret += ", "
-                ret += position[i]
-            else:
-                ret += " and " + position[i]
+        elif i == len(position) - 1:
+            ret += f" and {position[i]}"
 
+        else:
+            ret += ", "
+            ret += position[i]
     return ret
 
 
@@ -493,13 +492,12 @@ def format_position_cn(position):
     for i in range(len(position)):
         if i == 0:
             ret += Chinese_position[position[i]]
-        else:
-            if i != len(position) - 1:
-                ret += "，"
-                ret += Chinese_position[position[i]]
-            else:
-                ret += "和" + Chinese_position[position[i]]
+        elif i == len(position) - 1:
+            ret += f"和{Chinese_position[position[i]]}"
 
+        else:
+            ret += "，"
+            ret += Chinese_position[position[i]]
     return ret
 
 

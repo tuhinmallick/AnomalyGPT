@@ -14,19 +14,20 @@ from .self_sup_tasks import patch_ex
 CLASS_NAMES = ['candle', 'capsules', 'cashew', 'chewinggum', 'fryum', 'macaroni1', 'macaroni2','pcb1', 'pcb2', 'pcb3', 'pcb4', 'pipe_fryum']
 
 
-describles = {}
-describles['candle'] = "This is a photo of 4 candles for anomaly detection, every candle should be round, without any damage, flaw, defect, scratch, hole or broken part."
-describles['capsules'] = "This is a photo of many small capsules for anomaly detection, every capsule is green, should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['cashew'] = "This is a photo of a cashew for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['chewinggum'] = "This is a photo of a chewinggom for anomaly detection, which should be white, without any damage, flaw, defect, scratch, hole or broken part."
-describles['fryum'] = "This is a photo of a fryum for anomaly detection on green background, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['macaroni1'] = "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['macaroni2'] = "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb1'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb2'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb3'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb4'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pipe_fryum'] = "This is a photo of a pipe fryum for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
+describles = {
+    'candle': "This is a photo of 4 candles for anomaly detection, every candle should be round, without any damage, flaw, defect, scratch, hole or broken part.",
+    'capsules': "This is a photo of many small capsules for anomaly detection, every capsule is green, should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'cashew': "This is a photo of a cashew for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'chewinggum': "This is a photo of a chewinggom for anomaly detection, which should be white, without any damage, flaw, defect, scratch, hole or broken part.",
+    'fryum': "This is a photo of a fryum for anomaly detection on green background, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'macaroni1': "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'macaroni2': "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb1': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb2': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb3': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb4': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pipe_fryum': "This is a photo of a pipe fryum for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+}
 
 
 class VisaDataset(Dataset):
@@ -91,16 +92,18 @@ class VisaDataset(Dataset):
         p = self.x[self.prev_idx]
         if self.transform is not None:
             p = self.transform(p)
-        p = np.asarray(p)    
+        p = np.asarray(p)
         x, mask, centers = patch_ex(x, p, **self_sup_args)
         mask = torch.tensor(mask[None, ..., 0]).float()
         self.prev_idx = index
-        
+
 
         origin = self.norm_transform(origin)
         x = self.norm_transform(x)
 
-   
+
+        conversation_normal = []
+
         if len(centers) > 0:
             position = []
             for center in centers:
@@ -109,38 +112,39 @@ class VisaDataset(Dataset):
 
                 if center_x <= 1/3 and center_y <= 1/3:
                     position.append('top left')
-                elif center_x <= 1/3 and center_y > 1/3 and center_y <= 2/3:
+                elif center_x <= 1 / 3 and center_y <= 2 / 3:
                     position.append('top')
-                elif center_x <= 1/3 and center_y > 2/3:
+                elif center_x <= 1 / 3:
                     position.append('top right')
 
                 elif center_x <= 2/3 and center_y <= 1/3:
                     position.append('left')
-                elif center_x <= 2/3 and center_y > 1/3 and center_y <= 2/3:
+                elif center_x <= 2 / 3 and center_y <= 2 / 3:
                     position.append('center')
-                elif center_x <= 2/3 and center_y > 2/3:
+                elif center_x <= 2 / 3:
                     position.append('right')
 
                 elif center_y <= 1/3:
                     position.append('bottom left')
-                elif center_y > 1/3 and center_y <= 2/3:
+                elif center_y <= 2 / 3:
                     position.append('bottom')
-                elif center_y > 2/3:
+                else:
                     position.append('bottom right')
 
-            conversation_normal = []
-
-            conversation_normal.append({"from":"human","value": describles[class_name] + " Is there any anomaly in the image?"})
-            conversation_normal.append({"from":"gpt","value":"No, there is no anomaly in the image."})
-
-            conversation_abnormal = []
-            conversation_abnormal.append({"from":"human","value":  describles[class_name] + " Is there any anomaly in the image?"})
-
-
-            
-
+            conversation_normal.extend(
+                (
+                    {
+                        "from": "human",
+                        "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                    },
+                    {
+                        "from": "gpt",
+                        "value": "No, there is no anomaly in the image.",
+                    },
+                )
+            )
             if len(centers) > 1:
-                abnormal_describe =  "Yes, there are " + str(len(centers)) + " anomalies in the image, they are at the "
+                abnormal_describe = f"Yes, there are {len(centers)} anomalies in the image, they are at the "
                 for i in range(len(centers)):
                     if i == 0:
                         abnormal_describe += position[i]
@@ -150,25 +154,36 @@ class VisaDataset(Dataset):
                             abnormal_describe += ", "
                             abnormal_describe += position[i]
                         else:
-                            abnormal_describe += " and " + position[i] + " of the image."
-                    
-                    elif i == 1 and position[i] == position[i-1]:
+                            abnormal_describe += f" and {position[i]} of the image."
+
+                    elif i == 1:
                         if i == len(centers) - 1:
                             abnormal_describe += " of the image."
 
             else:
-                abnormal_describe = "Yes, there is an anomaly in the image, at the " + position[0] + " of the image."
+                abnormal_describe = f"Yes, there is an anomaly in the image, at the {position[0]} of the image."
 
-            conversation_abnormal.append({"from":"gpt","value":abnormal_describe})
-
+            conversation_abnormal = [
+                {
+                    "from": "human",
+                    "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                },
+                {"from": "gpt", "value": abnormal_describe},
+            ]
         else:
             print("no mask")
-            conversation_normal = []
-
-            conversation_normal.append({"from":"human","value": describles[class_name] + " Is there any anomaly in the image?"})
-            conversation_normal.append({"from":"gpt","value":"No, there is no anomaly in the image."})
-
-
+            conversation_normal.extend(
+                (
+                    {
+                        "from": "human",
+                        "value": f"{describles[class_name]} Is there any anomaly in the image?",
+                    },
+                    {
+                        "from": "gpt",
+                        "value": "No, there is no anomaly in the image.",
+                    },
+                )
+            )
             conversation_abnormal = conversation_normal
 
 

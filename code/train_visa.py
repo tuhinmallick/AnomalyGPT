@@ -47,9 +47,7 @@ def config_env(args):
     set_random_seed(args['seed'])
 
 def build_directory(path):
-    if os.path.exists(path):
-        pass
-    else: # recursively construct directory
+    if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
 def main(**args):
@@ -68,7 +66,7 @@ def main(**args):
             filename=f'{args["log_path"]}/train_{time.asctime()}.log',
             filemode='w'
         )
-    
+
     train_data, train_iter, sampler = load_visa_dataset(args)
     train_data_sft, train_iter_sft, sampler = load_sft_dataset(args)
 
@@ -81,10 +79,8 @@ def main(**args):
     # begin to train
     pbar = tqdm(total=length)    # maximum total number
     current_step = 0
-    for epoch_i in tqdm(range(args['epochs'])):
-        iter_every_epoch = 0
-        for batch, batch_sft in zip(train_iter,train_iter_sft):
-            iter_every_epoch += 1
+    for _ in tqdm(range(args['epochs'])):
+        for iter_every_epoch, (batch, batch_sft) in enumerate(zip(train_iter,train_iter_sft), start=1):
             agent.train_model(
                 batch, 
                 current_step=current_step, 

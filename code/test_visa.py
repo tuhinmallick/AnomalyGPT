@@ -20,20 +20,20 @@ parser.add_argument("--round", type=int, default=14)
 command_args = parser.parse_args()
 
 
-describles = {}
-describles['candle'] = "This is a photo of 4 candles for anomaly detection, every candle should be round, without any damage, flaw, defect, scratch, hole or broken part."
-describles['capsules'] = "This is a photo of many small capsules for anomaly detection, every capsule is green, should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['cashew'] = "This is a photo of a cashew for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['chewinggum'] = "This is a photo of a chewinggom for anomaly detection, which should be white, without any damage, flaw, defect, scratch, hole or broken part."
-describles['fryum'] = "This is a photo of a fryum for anomaly detection on green background, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['macaroni1'] = "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['macaroni2'] = "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb1'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb2'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb3'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pcb4'] = "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-describles['pipe_fryum'] = "This is a photo of a pipe fryum for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part."
-
+describles = {
+    'candle': "This is a photo of 4 candles for anomaly detection, every candle should be round, without any damage, flaw, defect, scratch, hole or broken part.",
+    'capsules': "This is a photo of many small capsules for anomaly detection, every capsule is green, should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'cashew': "This is a photo of a cashew for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'chewinggum': "This is a photo of a chewinggom for anomaly detection, which should be white, without any damage, flaw, defect, scratch, hole or broken part.",
+    'fryum': "This is a photo of a fryum for anomaly detection on green background, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'macaroni1': "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'macaroni2': "This is a photo of 4 macaronis for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb1': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb2': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb3': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pcb4': "This is a photo of pcb for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+    'pipe_fryum': "This is a photo of a pipe fryum for anomaly detection, which should be without any damage, flaw, defect, scratch, hole or broken part.",
+}
 FEW_SHOT = command_args.few_shot 
 
 # init the model
@@ -57,7 +57,7 @@ delta_ckpt = torch.load(args['anomalygpt_ckpt_path'], map_location=torch.device(
 model.load_state_dict(delta_ckpt, strict=False)
 model = model.eval().half().cuda()
 
-print(f'[!] init the 7b model over ...')
+print('[!] init the 7b model over ...')
 
 """Override Chatbot.postprocess"""
 
@@ -73,17 +73,13 @@ def predict(
     modality_cache,  
 ):
     
-    prompt_text = ''
-    for idx, (q, a) in enumerate(history):
-        if idx == 0:
-            prompt_text += f'{q}\n### Assistant: {a}\n###'
-        else:
-            prompt_text += f' Human: {q}\n### Assistant: {a}\n###'
-    if len(history) == 0:
-        prompt_text += f'{input}'
-    else:
-        prompt_text += f' Human: {input}'
-
+    prompt_text = ''.join(
+        f'{q}\n### Assistant: {a}\n###'
+        if idx == 0
+        else f' Human: {q}\n### Assistant: {a}\n###'
+        for idx, (q, a) in enumerate(history)
+    )
+    prompt_text += f'{input}' if len(history) == 0 else f' Human: {input}'
     response, pixel_output = model.generate({
         'prompt': prompt_text,
         'image_paths': [image_path] if image_path else [],
@@ -150,9 +146,27 @@ for c_name in CLASS_NAMES:
     i_label = []
     for file_path in tqdm(file_paths[c_name]):
         if FEW_SHOT:
-            resp, anomaly_map = predict(describles[c_name] + ' ' + input, file_path, normal_img_path[c_name], 512, 0.01, 1.0, [], [])
+            resp, anomaly_map = predict(
+                f'{describles[c_name]} {input}',
+                file_path,
+                normal_img_path[c_name],
+                512,
+                0.01,
+                1.0,
+                [],
+                [],
+            )
         else:
-            resp, anomaly_map = predict(describles[c_name] + ' ' + input, file_path, None, 512, 0.01, 1.0, [], [])
+            resp, anomaly_map = predict(
+                f'{describles[c_name]} {input}',
+                file_path,
+                None,
+                512,
+                0.01,
+                1.0,
+                [],
+                [],
+            )
         is_normal = 'Normal' in file_path.split('/')[-2]
 
         if is_normal:
@@ -166,7 +180,7 @@ for c_name in CLASS_NAMES:
         threshold = img_mask.max() / 100
         img_mask[img_mask > threshold], img_mask[img_mask <= threshold] = 1, 0
         img_mask = img_mask.squeeze().reshape(224, 224).cpu().numpy()
-        
+
         anomaly_map = anomaly_map.reshape(224, 224).detach().cpu().numpy()
 
         p_label.append(img_mask)
@@ -177,9 +191,12 @@ for c_name in CLASS_NAMES:
 
 
         # print(file_path, resp)
-        if 'Normal' not in file_path and 'Yes' in resp:
-            right += 1
-        elif 'Normal' in file_path and 'No' in resp:
+        if (
+            'Normal' not in file_path
+            and 'Yes' in resp
+            or 'Normal' in file_path
+            and 'No' in resp
+        ):
             right += 1
         else:
             wrong += 1
@@ -192,7 +209,7 @@ for c_name in CLASS_NAMES:
 
     p_auroc = round(roc_auc_score(p_label.ravel(), p_pred.ravel()) * 100,2)
     i_auroc = round(roc_auc_score(i_label.ravel(), i_pred.ravel()) * 100,2)
-    
+
     p_auc_list.append(p_auroc)
     i_auc_list.append(i_auroc)
     precision.append(100 * right / (right + wrong))

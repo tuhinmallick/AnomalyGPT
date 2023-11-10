@@ -30,7 +30,7 @@ def load_config(args):
     return configuration
 
 def load_base_config():
-    config_path = f'config/base.yaml'
+    config_path = 'config/base.yaml'
     with open(config_path) as f:
         configuration = yaml.load(f, Loader=yaml.FullLoader)
     print(f'[!] load base configuration: {config_path}')
